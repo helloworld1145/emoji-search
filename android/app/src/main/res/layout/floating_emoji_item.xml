@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  悬浮窗网格单项：固定 94dp × 94dp 正方形（宽高相等），配合 GridLayoutManager 一行 3 列。
+  尺寸推导（与 floating_panel.xml 保持一致）：面板 320dp - 两侧内边距 16dp = 304dp，
+  减 RecyclerView 水平内边距 4dp = 300dp，3 列 ×(94dp + 左右 margin 6dp) = 300dp。
+  单行高 = 94 + 上下 margin 6 = 100dp，面板网格区取 1.5 行 = 150dp。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="94dp"
+    android:layout_height="94dp"
+    android:layout_margin="3dp">
+
+    <ImageView
+        android:id="@+id/thumb"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:background="#22000000" />
+
+    <TextView
+        android:id="@+id/gifBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:text="GIF"
+        android:textSize="9sp"
+        android:textColor="#FFFFFF"
+        android:background="#AA000000"
+        android:paddingStart="3dp"
+        android:paddingEnd="3dp"
+        android:visibility="gone" />
+</FrameLayout>

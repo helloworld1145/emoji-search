@@ -1,0 +1,136 @@
+apply plugin: 'com.android.application'
+
+// Release 签名配置：存在 android/keystore.properties 时自动启用
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def hasKeystore = keystorePropertiesFile.exists()
+def keystoreProperties = new Properties()
+if (hasKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace "com.emoji.ai"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.emoji.ai"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 33
+        versionName "1.5.6"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+// ===== Release 签名守卫（覆盖安装保护）=====
+// 覆盖安装（直接升级、无需卸载、保留数据）需同时满足三个系统条件：
+//   ① applicationId 不变（本文件已固定 com.emoji.ai）；
+//   ② 同一把密钥库签名（永久复用 android/app/emoji-ai.keystore，切勿重新生成）；
+//   ③ versionCode 严格递增（见 CODEBUDDY.md §6 打包前必须递增版本号）。
+// 若 release 包缺失或错配签名，用户手机上会因签名不一致被迫卸载重装，数据全部丢失。
+// 守卫放在任务执行阶段（doFirst）且只匹配 release 系任务，不影响 assembleDebug。
+// 注意：任务执行闭包内不要直接引用 android 扩展（部分 AGP 任务类自带同名属性，
+// 闭包内属性解析会冲突并报 No such property），一律在配置阶段捕获为局部变量后再使用。
+def requiredKeystoreKeys = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+def releaseSigningConfig = hasKeystore ? android.signingConfigs.findByName('release') : null
+def releaseSigningApplied = releaseSigningConfig != null &&
+        android.buildTypes.release.signingConfig == releaseSigningConfig
+
+tasks.matching { task ->
+    task.name.toLowerCase().contains('release')
+}.configureEach { task ->
+    task.doFirst {
+        if (!hasKeystore) {
+            throw new GradleException(
+                    "Release 构建缺少签名配置：未找到 ${keystorePropertiesFile}\n" +
+                    "  · 未签名的 release 包无法安装；签名与线上旧版不一致时，用户必须卸载旧版才能安装，数据全部丢失。\n" +
+                    "  · 请按 README「Release 签名配置」一节准备 android/keystore.properties，\n" +
+                    "    并永久复用同一把 android/app/emoji-ai.keystore（切勿重新生成，否则存量用户全部需要卸载重装）。"
+            )
+        }
+        requiredKeystoreKeys.each { key ->
+            if (!keystoreProperties.getProperty(key)) {
+                throw new GradleException(
+                        "Release 签名守卫：${keystorePropertiesFile} 缺少配置项 '${key}'\n" +
+                        "  · 签名信息不完整会导致 release 包无法安装，或与线上旧版签名不一致（用户被迫卸载重装、数据丢失）。\n" +
+                        "  · 请补齐 android/keystore.properties，并确认复用同一把 emoji-ai.keystore。"
+                )
+            }
+        }
+        def keystoreFile = file(keystoreProperties.getProperty('storeFile'))
+        if (!keystoreFile.exists()) {
+            throw new GradleException(
+                    "Release 签名守卫：密钥库文件不存在：${keystoreFile}\n" +
+                    "  · 重新生成密钥库 = 签名改变 = 所有存量用户必须卸载重装，SQLite 数据库、收藏夹、SAF 文件夹授权全部丢失。\n" +
+                    "  · 请从备份恢复该文件；如确需新建密钥库，等同于放弃全部存量用户的覆盖升级，请谨慎决策。"
+            )
+        }
+        if (!releaseSigningApplied) {
+            throw new GradleException(
+                    "Release 签名守卫：release 构建类型未正确应用 release 签名配置\n" +
+                    "  · 请检查 android/app/build.gradle 中 signingConfigs 与 buildTypes.release 的配置。"
+            )
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+
+    // ML Kit 端侧 OCR（中文识别，含拉丁字符）
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
+    // ML Kit 端侧图像标签（用于情感映射）
+    implementation 'com.google.mlkit:image-labeling:17.0.9'
+    // SAF 目录选择 / 遍历（DocumentFile）
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    // 悬浮窗表情网格（RecyclerView）
+    implementation "androidx.recyclerview:recyclerview:1.3.2"
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

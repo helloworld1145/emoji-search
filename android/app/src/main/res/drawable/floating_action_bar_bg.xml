@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  底部操作条浮层背景：盖在表情网格之上（不占布局高度，故面板总高度只按「头部 + 1.5 行」计算）。
+  仅保留下方两个圆角，与面板外框（floating_panel_bg 圆角 14dp）衔接。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#EE1B1B1B" />
+    <corners
+        android:bottomLeftRadius="14dp"
+        android:bottomRightRadius="14dp" />
+</shape>

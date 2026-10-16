@@ -1,0 +1,89 @@
+/* 狸叶黑体（LeeeafHei）。使用范围仅限 h1 页面主标题（见下方 @layer base 的 h1 规则）。
+   font-display: swap 保证 3.85MB 字体下载期间先用 fallback 显示，不阻塞首屏渲染；
+   路径由 Vite 解析为带 hash 的资源。 */
+@font-face {
+  font-family: 'LeeeafHei';
+  src: url('./assets/font/LeeeafHei-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-surface text-ink font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 狸叶黑体（LeeeafHei）仅用于 h1 页面主标题；font-display: swap 保证
+     3.85MB 字体下载期间先用 fallback 显示，不阻塞首屏渲染 */
+  h1 {
+    font-family: 'LeeeafHei', 'PingFang SC', 'HarmonyOS Sans SC', 'MiSans',
+      'Noto Sans SC', sans-serif;
+  }
+
+  /* 原生滚动条美化（Android WebView） */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer components {
+  /* tab-bar 为 fixed 定位（不占 flex 流），会盖住 <main> 底部 64px + 安全区，
+     故 .page 的 padding-bottom 需补齐这段高度，再额外留 16px 呼吸空间，
+     否则页面内容滚到底时最后一项会紧贴 tabbar 顶边。 */
+  .page {
+    @apply min-h-full;
+    padding-bottom: calc(64px + var(--safe-bottom) + 16px);
+  }
+
+  .nav-bar {
+    @apply fixed top-0 inset-x-0 z-30 h-[var(--safe-top,0px)] pt-[var(--safe-top,0px)] bg-card/90 backdrop-blur-md border-b border-black/5;
+  }
+
+  .tab-bar {
+    @apply fixed bottom-0 inset-x-0 z-30 bg-card/90 backdrop-blur-md border-t border-black/5 pb-[var(--safe-bottom)];
+  }
+
+  .card {
+    @apply bg-card rounded-card shadow-card;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-all active:scale-95 select-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-primary to-secondary text-white shadow-float;
+  }
+
+  .btn-ghost {
+    @apply btn bg-black/5 text-ink;
+  }
+
+  .grid-emoji {
+    @apply grid gap-2;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
